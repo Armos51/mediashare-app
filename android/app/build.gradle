@@ -133,7 +133,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "oi.bluecollardev.mediashare"
+        applicationId "oi.afehrpt.pocketpt"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 10

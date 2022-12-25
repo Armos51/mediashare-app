@@ -117,6 +117,13 @@ const routeConfig = {
       header: (props) => <AppHeader {...props} showAccount={false} showNotifications={false} />,
     },
   },
+  invitation: {
+    name: 'invitation',
+    options: {
+      title: 'Invitation',
+      header: (props) => <AppHeader {...props} showAccountMenu={false} showNotificationsMenu={false} />,
+    },
+  },
   sharedWithContact: {
     name: 'sharedWithContact',
     options: { title: `Items You're Sharing`, header: (props) => <AppHeader {...props} showAccount={true} /> },

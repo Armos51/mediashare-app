@@ -110,6 +110,7 @@ export const Media = ({ navigation, globalState }: PageProps) => {
   ];
 
   return (
+    
     <PageContainer>
       <KeyboardAvoidingPageContent refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <AppDialog
@@ -172,6 +173,7 @@ export const Media = ({ navigation, globalState }: PageProps) => {
         />
       ) : null}
     </PageContainer>
+    
   );
 
   /**

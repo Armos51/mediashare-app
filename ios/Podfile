@@ -1,104 +1,61 @@
+require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 require File.join(File.dirname(`node --print "require.resolve('@react-native-community/cli-platform-ios/package.json')"`), "native_modules")
-require File.join(File.dirname(`node --print "require.resolve('react-native-unimodules/package.json')"`), "cocoapods")
 
-platform :ios, '12.0'
+require 'json'
+podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
-target 'PocketPT' do
-  use_unimodules!
+platform :ios, podfile_properties['ios.deploymentTarget'] || '13.0'
+install! 'cocoapods',
+  :deterministic_uuids => false
+
+target 'pocketpt' do
+  use_expo_modules!
   config = use_native_modules!
 
-  use_react_native!(:path => config["reactNativePath"])
+  use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
 
-  # The prefix to react-native
-  prefix =  "../node_modules/react-native"
-  options={}
+  # Flags change depending on the env values.
+  flags = get_default_flags()
 
-  # React dependencies
-  # pod 'FBLazyVector', :path => "#{prefix}/Libraries/FBLazyVector"
-  # pod 'FBReactNativeSpec', :path => "#{prefix}/React/FBReactNativeSpec"
-  pod 'RCTRequired', :path => "#{prefix}/Libraries/RCTRequired"
-  pod 'RCTTypeSafety', :path => "#{prefix}/Libraries/TypeSafety"
-  pod 'React', :path => "#{prefix}/"
-  pod 'React-Core', :path => "#{prefix}/"
-  pod 'React-CoreModules', :path => "#{prefix}/React/CoreModules"
-  pod 'React-RCTActionSheet', :path => "#{prefix}/Libraries/ActionSheetIOS"
-  pod 'React-RCTAnimation', :path => "#{prefix}/Libraries/NativeAnimation"
-  pod 'React-RCTBlob', :path => "#{prefix}/Libraries/Blob"
-  pod 'React-RCTImage', :path => "#{prefix}/Libraries/Image"
-  pod 'React-RCTLinking', :path => "#{prefix}/Libraries/LinkingIOS"
-  pod 'React-RCTNetwork', :path => "#{prefix}/Libraries/Network"
-  pod 'React-RCTSettings', :path => "#{prefix}/Libraries/Settings"
-  pod 'React-RCTText', :path => "#{prefix}/Libraries/Text"
-  pod 'React-RCTVibration', :path => "#{prefix}/Libraries/Vibration"
-  pod 'React-Core/RCTWebSocket', :path => "#{prefix}/"
-
-  #   unless production
-  #     pod 'React-Core/DevSupport', :path => "#{prefix}/"
-  #   end
-
-  pod 'React-cxxreact', :path => "#{prefix}/ReactCommon/cxxreact"
-  pod 'React-jsi', :path => "#{prefix}/ReactCommon/jsi"
-  pod 'React-jsiexecutor', :path => "#{prefix}/ReactCommon/jsiexecutor"
-  pod 'React-jsinspector', :path => "#{prefix}/ReactCommon/jsinspector"
-  pod 'React-callinvoker', :path => "#{prefix}/ReactCommon/callinvoker"
-  # pod 'React-runtimeexecutor', :path => "#{prefix}/ReactCommon/runtimeexecutor"
-  # pod 'React-perflogger', :path => "#{prefix}/ReactCommon/reactperflogger"
-  pod 'ReactCommon/turbomodule/core', :path => "#{prefix}/ReactCommon"
-  pod 'Yoga', :path => "#{prefix}/ReactCommon/yoga", :modular_headers => true
-
-  pod 'DoubleConversion', :podspec => "#{prefix}/third-party-podspecs/DoubleConversion.podspec"
-  pod 'glog', :podspec => "#{prefix}/third-party-podspecs/glog.podspec"
-  # pod 'RCT-Folly', :podspec => "#{prefix}/third-party-podspecs/RCT-Folly.podspec"
-
-  #   if fabric_enabled
-  #     pod 'React-Fabric', :path => "#{prefix}/ReactCommon"
-  #     pod 'React-graphics', :path => "#{prefix}/ReactCommon/react/renderer/graphics"
-  #     pod 'React-jsi/Fabric', :path => "#{prefix}/ReactCommon/jsi"
-  #     pod 'React-RCTFabric', :path => "#{prefix}/React"
-  #     pod 'RCT-Folly/Fabric', :podspec => "#{prefix}/third-party-podspecs/RCT-Folly.podspec"
-  #   end
-
-  #   if hermes_enabled
-  #     pod 'React-Core/Hermes', :path => "#{prefix}/"
-  #     pod 'hermes-engine', '~> 0.7.2'
-  #     pod 'libevent', '~> 2.1.12'
-  #   end
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :hermes_enabled => podfile_properties['expo.jsEngine'] == 'hermes',
+    :fabric_enabled => flags[:fabric_enabled],
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/..",
+    #
+    # Uncomment to opt-in to using Flipper
+    # Note that if you have use_frameworks! enabled, Flipper will not work
+    # :flipper_configuration => !ENV['CI'] ? FlipperConfiguration.enabled : FlipperConfiguration.disabled,
+  )
 
   post_install do |installer|
-    installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |config|
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+    react_native_post_install(
+      installer,
+      # Set `mac_catalyst_enabled` to `true` in order to apply patches
+      # necessary for Mac Catalyst builds
+      :mac_catalyst_enabled => false
+    )
+    __apply_Xcode_12_5_M1_post_install_workaround(installer)
+
+    # This is necessary for Xcode 14, because it signs resource bundles by default
+    # when building for devices.
+    installer.target_installation_results.pod_target_installation_results
+      .each do |pod_name, target_installation_result|
+      target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
+        resource_bundle_target.build_configurations.each do |config|
+          config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+        end
       end
     end
   end
 
-  target 'PocketPTTests' do
-    inherit! :complete
-    # Pods for testing
+  post_integrate do |installer|
+    begin
+      expo_patch_react_imports!(installer)
+    rescue => e
+      Pod::UI.warn e
+    end
   end
-
-  # Enables Flipper.
-  #
-  # Note that if you have use_frameworks! enabled, Flipper will not work and
-  # you should disable these next few lines.
-  # use_flipper!
-  # post_install do |installer|
-  #   flipper_post_install(installer)
-  #   installer.pods_project.targets.each do |target|
-  #     target.build_configurations.each do |config|
-  #       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '11.0'
-  #     end
-  #   end
-  # end
 end
-
-# target 'PocketPT-tvOS' do
-  # Pods for PocketPT-tvOS
-#
-#
-#   target 'PocketPT-tvOSTests' do
-#     inherit! :search_paths
-    # Pods for testing
-#   end
-# end

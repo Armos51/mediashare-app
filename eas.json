@@ -1,0 +1,26 @@
+{
+  "cli": {
+    "version": ">= 3.2.1"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "channel": "default"
+    },
+    "staging": {
+      "distribution": "internal",
+      "channel": "staging"
+    },
+    "production": {
+      "distribution": "store",
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
